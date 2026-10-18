@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.SimpleLedger" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorPrimaryVariant">@color/accent_deep</item>
+        <item name="colorOnPrimary">@color/accent_contrast</item>
+        <item name="colorSecondary">@color/cat_food</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorError">@color/danger</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowAnimationStyle">@style/Animation.SimpleLedger.Window</item>
+        <item name="materialAlertDialogTheme">@style/Theme.SimpleLedger.Dialog</item>
+    </style>
+
+    <style name="Theme.SimpleLedger.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:windowEnterAnimation">@anim/dialog_in</item>
+        <item name="android:windowExitAnimation">@anim/dialog_out</item>
+        <item name="colorPrimary">@color/accent</item>
+    </style>
+
+    <style name="Animation.SimpleLedger.Window" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@anim/fade_out</item>
+    </style>
+</resources>

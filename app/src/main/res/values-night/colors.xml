@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0D100D</color>
+    <color name="surface">#181C18</color>
+    <color name="surface_alt">#222822</color>
+    <color name="surface_pressed">#2A322A</color>
+    <color name="text_primary">#F1F4EF</color>
+    <color name="text_secondary">#A3ACA0</color>
+    <color name="text_tertiary">#737C71</color>
+    <color name="divider">#293129</color>
+
+    <color name="accent">#74C99D</color>
+    <color name="accent_deep">#429C73</color>
+    <color name="accent_soft">#1B2B21</color>
+    <color name="accent_contrast">#0D100D</color>
+
+    <color name="cat_food">#E0A065</color>
+    <color name="cat_transport">#82A7DD</color>
+    <color name="cat_daily">#70BDB3</color>
+    <color name="cat_fun">#B39BCC</color>
+    <color name="cat_study">#D2B06C</color>
+    <color name="cat_other">#9BA396</color>
+
+    <color name="warning_green">#6BC184</color>
+    <color name="warning_orange">#E5B15B</color>
+    <color name="warning_red">#E17B73</color>
+    <color name="danger">#E17B73</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="scrim">#99000000</color>
+    <color name="shadow">#33000000</color>
+
+    <color name="switch_thumb">#E9EDE7</color>
+    <color name="switch_track_on">#429C73</color>
+    <color name="switch_track_off">#3A4439</color>
+    <color name="icon_bg">#2F7D5A</color>
+</resources>

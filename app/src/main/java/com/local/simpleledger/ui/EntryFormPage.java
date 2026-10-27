@@ -381,12 +381,13 @@ public final class EntryFormPage extends LinearLayout {
         String item = itemInput == null ? "" : itemInput.getText().toString().trim();
         String amountText = amountInput == null ? "" : amountInput.getText().toString();
         long cents = Money.parseCents(amountText);
-        if (selectedSubcategory == null || item.isEmpty() || cents <= 0) {
+        if (selectedSubcategory == null || cents <= 0) {
             preview.setVisibility(GONE);
             return;
         }
+        String displayItem = item.isEmpty() ? currentDisplaySubcategory() : item;
         preview.setVisibility(VISIBLE);
-        preview.setText(category.title + "-" + currentDisplaySubcategory() + "-" + item
+        preview.setText(category.title + "-" + currentDisplaySubcategory() + "-" + displayItem
                 + "：" + Money.yuan(cents));
         preview.setTextColor(Ui.color(getContext(), R.color.accent));
     }
@@ -424,10 +425,7 @@ public final class EntryFormPage extends LinearLayout {
         }
         String item = itemInput.getText().toString().trim();
         if (item.isEmpty()) {
-            Ui.toast(getContext(), "请填写项目名");
-            itemInput.requestFocus();
-            Ui.showKeyboard(itemInput);
-            return;
+            item = currentDisplaySubcategory();
         }
         long cents = Money.parseCents(amountInput.getText().toString());
         if (cents <= 0) {

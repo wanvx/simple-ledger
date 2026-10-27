@@ -66,6 +66,14 @@ public final class MainActivity extends AppCompatActivity implements Navigator {
         super.onSaveInstanceState(outState);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (profilePage != null) {
+            profilePage.onResumeFromActivity();
+        }
+    }
+
     private void buildBottomNavigation() {
         for (int i = 0; i < 3; i++) {
             View item = getLayoutInflater().inflate(R.layout.nav_item, navContainer, false);

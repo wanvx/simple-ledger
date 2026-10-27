@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -28,6 +29,10 @@ import com.local.simpleledger.model.WarningLevel;
 import com.local.simpleledger.util.DateRange;
 import com.local.simpleledger.util.LedgerPrefs;
 import com.local.simpleledger.util.Money;
+import com.local.simpleledger.util.UpdateManager;
+
+import java.io.File;
+import java.util.Locale;
 
 /** Page three: theme, warning thresholds, balances, about and the data reset entry. */
 public final class ProfilePage extends LinearLayout {
@@ -49,9 +54,12 @@ public final class ProfilePage extends LinearLayout {
     private final TextView remainingLevel;
     private final TextView budgetAdjustment;
     private final TextView warningSubtitle;
+    private final TextView updateSubtitle;
     private final LinearLayout remainingTrack;
     private final SegmentedControl modeSwitch;
     private SwitchMaterial themeSwitch;
+    private boolean checkingUpdate;
+    private File pendingInstallFile;
 
     public ProfilePage(Context context, LedgerDb db, Navigator navigator) {
         super(context);
@@ -230,6 +238,10 @@ public final class ProfilePage extends LinearLayout {
         warningSubtitle = Ui.text(context, "", 10,
                 Ui.color(context, R.color.text_secondary), false);
         settingsList.addView(warningRow(context));
+        settingsList.addView(indentedDivider(context));
+        updateSubtitle = Ui.text(context, "当前版本 v" + BuildConfig.VERSION_NAME, 10,
+                Ui.color(context, R.color.text_secondary), false);
+        settingsList.addView(updateRow(context));
         settingsList.addView(indentedDivider(context));
         settingsList.addView(settingRow(context, R.drawable.ic_info, "软件说明",
                 null, false, v -> showAbout(context)));
@@ -605,6 +617,253 @@ public final class ProfilePage extends LinearLayout {
         row.setOnClickListener(v -> navigator.openWarningSettings());
         Ui.pressScale(row);
         return row;
+    }
+
+    private LinearLayout updateRow(Context context) {
+        LinearLayout row = Ui.horizontal(context);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(context, 14), Ui.dp(context, 12),
+                Ui.dp(context, 14), Ui.dp(context, 12));
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setBackground(Ui.drawable(context, R.drawable.ripple_round));
+        row.addView(Ui.iconCircle(context, R.drawable.ic_update,
+                Ui.color(context, R.color.text_secondary), 40, 21));
+        LinearLayout texts = Ui.vertical(context);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.leftMargin = Ui.dp(context, 12);
+        texts.addView(Ui.text(context, "检查更新", 14,
+                Ui.color(context, R.color.text_primary), true));
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = Ui.dp(context, 3);
+        texts.addView(updateSubtitle, subtitleParams);
+        row.addView(texts, textParams);
+        row.addView(Ui.icon(context, R.drawable.ic_chevron_right, 16,
+                Ui.color(context, R.color.text_tertiary)));
+        row.setOnClickListener(v -> checkForUpdates());
+        Ui.pressScale(row);
+        return row;
+    }
+
+    private void checkForUpdates() {
+        if (checkingUpdate) {
+            return;
+        }
+        final Context context = getContext();
+        checkingUpdate = true;
+        updateSubtitle.setText("正在检查更新…");
+
+        LinearLayout box = Ui.vertical(context);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(Ui.dp(context, 24), Ui.dp(context, 12),
+                Ui.dp(context, 24), Ui.dp(context, 4));
+        ProgressBar progress = new ProgressBar(context);
+        progress.setIndeterminate(true);
+        box.addView(progress, new LinearLayout.LayoutParams(
+                Ui.dp(context, 30), Ui.dp(context, 30)));
+        TextView status = Ui.text(context, "正在连接 GitHub…", 12,
+                Ui.color(context, R.color.text_secondary), false);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        statusParams.topMargin = Ui.dp(context, 10);
+        box.addView(status, statusParams);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle("检查更新")
+                .setView(box)
+                .setCancelable(false)
+                .create();
+        dialog.show();
+
+        UpdateManager.checkForUpdate((update, error) -> {
+            checkingUpdate = false;
+            if (dialog.isShowing()) {
+                dialog.dismiss();
+            }
+            if (error != null) {
+                updateSubtitle.setText("当前版本 v" + BuildConfig.VERSION_NAME);
+                showMessage(context, "检查更新失败",
+                        error + "\n\n请检查网络后重试。");
+                return;
+            }
+            if (update == null) {
+                updateSubtitle.setText("当前版本 v" + BuildConfig.VERSION_NAME);
+                showMessage(context, "检查更新失败", "没有读取到版本信息。");
+                return;
+            }
+            if (!update.newer) {
+                updateSubtitle.setText("已是最新 v" + BuildConfig.VERSION_NAME);
+                showMessage(context, "检查更新",
+                        "当前已是最新版本 v" + BuildConfig.VERSION_NAME + "。");
+                return;
+            }
+            updateSubtitle.setText("发现新版本 v" + update.version);
+            showUpdateAvailable(context, update);
+        });
+    }
+
+    private void showUpdateAvailable(Context context, UpdateManager.UpdateInfo update) {
+        String message = update.notes;
+        if (update.sizeBytes > 0) {
+            message += "\n\n安装包：" + formatSize(update.sizeBytes);
+        }
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle("发现新版本 v" + update.version)
+                .setMessage(message)
+                .setNegativeButton("稍后", null)
+                .setPositiveButton("下载更新",
+                        (d, which) -> downloadUpdate(context, update))
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(Ui.color(context, R.color.accent));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(Ui.color(context, R.color.text_secondary));
+        });
+        dialog.show();
+    }
+
+    private void downloadUpdate(Context context, UpdateManager.UpdateInfo update) {
+        LinearLayout box = Ui.vertical(context);
+        box.setPadding(Ui.dp(context, 24), Ui.dp(context, 12),
+                Ui.dp(context, 24), Ui.dp(context, 4));
+        ProgressBar bar = new ProgressBar(context, null,
+                android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(0);
+        bar.setProgressTintList(ColorStateList.valueOf(
+                Ui.color(context, R.color.accent)));
+        box.addView(bar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(context, 8)));
+        TextView status = Ui.text(context, "正在下载 v" + update.version + "…", 12,
+                Ui.color(context, R.color.text_secondary), false);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        statusParams.topMargin = Ui.dp(context, 10);
+        box.addView(status, statusParams);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle("下载更新")
+                .setView(box)
+                .setCancelable(false)
+                .create();
+        dialog.show();
+
+        UpdateManager.download(context, update, new UpdateManager.DownloadCallback() {
+            @Override
+            public void onProgress(int percent) {
+                bar.setProgress(percent);
+                status.setText("正在下载 " + percent + "%");
+            }
+
+            @Override
+            public void onComplete(File file) {
+                if (dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+                updateSubtitle.setText("下载完成，等待安装");
+                installDownloaded(context, file, update);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+                updateSubtitle.setText("当前版本 v" + BuildConfig.VERSION_NAME);
+                showMessage(context, "下载失败", message + "\n\n请检查网络后重试。");
+            }
+        });
+    }
+
+    private void installDownloaded(Context context, File file, UpdateManager.UpdateInfo update) {
+        UpdateManager.InstallResult result = UpdateManager.install(context, file);
+        switch (result) {
+            case STARTED:
+                pendingInstallFile = null;
+                updateSubtitle.setText("等待安装 v" + update.version);
+                Ui.toast(context, "已打开安装程序");
+                break;
+            case NEED_PERMISSION:
+                pendingInstallFile = file;
+                showInstallPermission(context);
+                break;
+            case NO_INSTALLER:
+                showMessage(context, "无法安装",
+                        "系统没有可用的 APK 安装程序。");
+                break;
+            case ERROR:
+            default:
+                showMessage(context, "无法安装",
+                        "安装包打开失败，请重新下载。");
+                break;
+        }
+    }
+
+    private void showInstallPermission(Context context) {
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle("需要安装权限")
+                .setMessage("Android 需要允许「简单记账」安装应用，更新才能继续。"
+                        + "返回应用后会自动继续安装。")
+                .setNegativeButton("稍后", (d, which) -> pendingInstallFile = null)
+                .setPositiveButton("去设置", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(Ui.color(context, R.color.accent));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(Ui.color(context, R.color.text_secondary));
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                if (!UpdateManager.openInstallPermissionSettings(context)) {
+                    pendingInstallFile = null;
+                    showMessage(context, "无法打开设置", "请手动在系统设置中允许安装未知应用。");
+                }
+                dialog.dismiss();
+            });
+        });
+        dialog.show();
+    }
+
+    /** Called by MainActivity when returning from the install-permission settings screen. */
+    public void onResumeFromActivity() {
+        if (pendingInstallFile == null || !pendingInstallFile.exists()) {
+            return;
+        }
+        if (UpdateManager.needsInstallPermission(getContext())) {
+            return;
+        }
+        File file = pendingInstallFile;
+        pendingInstallFile = null;
+        UpdateManager.InstallResult result = UpdateManager.install(getContext(), file);
+        if (result == UpdateManager.InstallResult.STARTED) {
+            Ui.toast(getContext(), "已打开安装程序");
+        } else if (result == UpdateManager.InstallResult.NEED_PERMISSION) {
+            pendingInstallFile = file;
+            showInstallPermission(getContext());
+        }
+    }
+
+    private void showMessage(Context context, String title, String message) {
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("知道了", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setTextColor(Ui.color(context, R.color.accent)));
+        dialog.show();
+    }
+
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        if (bytes < 1024 * 1024) {
+            return String.format(Locale.CHINA, "%.1f KB", bytes / 1024.0);
+        }
+        return String.format(Locale.CHINA, "%.1f MB", bytes / 1024.0 / 1024.0);
     }
 
     private LinearLayout settingRow(Context context, int iconRes, String title,

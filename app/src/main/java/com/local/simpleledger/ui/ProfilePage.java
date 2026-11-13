@@ -30,6 +30,7 @@ import com.local.simpleledger.util.DateRange;
 import com.local.simpleledger.util.LedgerPrefs;
 import com.local.simpleledger.util.Money;
 import com.local.simpleledger.util.UpdateManager;
+import com.local.simpleledger.util.BalanceSettlement;
 
 import java.io.File;
 import java.util.Locale;
@@ -535,7 +536,7 @@ public final class ProfilePage extends LinearLayout {
                 db.clearAllEntries();
                 db.clearBalanceRecords();
                 LedgerPrefs.resetFinancialSettings(context);
-                LedgerPrefs.resetBalanceStartWeek(context);
+                BalanceSettlement.restartFromNextWeek(context);
                 dialog.dismiss();
                 refresh();
                 navigator.dataChanged();

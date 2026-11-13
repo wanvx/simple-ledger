@@ -63,6 +63,13 @@ public final class BalanceSettlement {
         return LedgerPrefs.budget(context, true) - db.totalBetween(week.start, week.end);
     }
 
+    /** Starts fresh after "clear personal data" without re-crediting already deleted weeks. */
+    public static void restartFromNextWeek(Context context) {
+        Calendar next = DateUtils.startOfWeek(DateUtils.today());
+        next.add(Calendar.DAY_OF_MONTH, 7);
+        LedgerPrefs.setBalanceStartWeek(context, DateUtils.key(next));
+    }
+
     public static String startLabel(Context context) {
         return DateUtils.shortDate(ensureStartWeek(context));
     }

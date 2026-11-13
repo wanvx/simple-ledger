@@ -114,7 +114,7 @@ public final class ProfilePage extends LinearLayout {
         profileTextParams.leftMargin = Ui.dp(context, 14);
         profileTexts.addView(Ui.text(context, "简单记账", 20,
                 Ui.color(context, R.color.text_primary), true));
-        TextView local = Ui.text(context, "本地存储 · 无需联网 · 无广告", 10,
+        TextView local = Ui.text(context, "本地存储 · GitHub 更新 · 无广告", 10,
                 Ui.color(context, R.color.text_secondary), false);
         LinearLayout.LayoutParams localParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -485,10 +485,10 @@ public final class ProfilePage extends LinearLayout {
     }
 
     private void showAbout(Context context) {
-        String description = "简单记账是一款完全离线的本地记账工具。\n\n"
+        String description = "简单记账是一款账单本地保存的记账工具。\n\n"
                 + "● 六类支出\n"
                 + "饮食、出行、日常、娱乐、学习、其他，每类都有固定小类，日常中包含看病买药。"
-                + "每次先选大类，再选小类，填写项目名与金额。\n\n"
+                + "每次先选大类，再选小类，填写项目名与金额；项目名留空时自动使用小类名称。\n\n"
                 + "● 其他名称\n"
                 + "选择「其他」小类时，可以填写一个具体名称，例如话费。"
                 + "明细、统计和导出都会使用该名称；留空则显示「其他」。\n\n"
@@ -498,10 +498,13 @@ public final class ProfilePage extends LinearLayout {
                 + "● 预警与剩余\n"
                 + "本日、本周、本月均有绿 / 橙 / 红三阶段预警线，可在「预警设置」中调整。"
                 + "剩余 = 额度 - 支出；额度可增加、减少或恢复默认。\n\n"
+                + "● 余额\n"
+                + "每周结束后，把「周预算 - 本周支出」计入余额；余额也可以手动调整、"
+                + "存入或扣款。存入和扣款不计入日常支出，只留在余额页。\n\n"
                 + "● 数据安全\n"
-                + "所有账单保存在应用私有目录的 SQLite 数据库中，金额以“分”为单位存储，"
-                + "不联网、不需要账号。允许系统备份时，数据可随系统备份迁移；"
-                + "卸载应用或执行「个人数据清除」会删除账单。\n\n"
+                + "账单和余额记录保存在应用私有目录的 SQLite 数据库中，金额以“分”为单位存储。"
+                + "不会上传账单；仅「检查更新」会访问 GitHub。"
+                + "卸载应用或执行「个人数据清除」会删除全部数据。\n\n"
                 + "● 导出\n"
                 + "记录页最下方可按本日、本周、本月或近七天导出，支持图片与 CSV 文档。\n\n"
                 + "希望每一笔都花得明白。";
@@ -518,7 +521,7 @@ public final class ProfilePage extends LinearLayout {
     private void confirmClear(Context context) {
         AlertDialog dialog = new MaterialAlertDialogBuilder(context)
                 .setTitle("清除个人数据？")
-                .setMessage("将删除全部账单，并重置剩余额度调整与预警设置。\n"
+                .setMessage("将删除全部账单和余额记录，并重置剩余额度调整与预警设置。\n"
                         + "主题设置会保留，操作无法撤销。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("清除", null)
@@ -530,7 +533,9 @@ public final class ProfilePage extends LinearLayout {
                     .setTextColor(Ui.color(context, R.color.text_secondary));
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 db.clearAllEntries();
+                db.clearBalanceRecords();
                 LedgerPrefs.resetFinancialSettings(context);
+                LedgerPrefs.resetBalanceStartWeek(context);
                 dialog.dismiss();
                 refresh();
                 navigator.dataChanged();

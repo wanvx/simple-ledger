@@ -73,6 +73,19 @@ public final class LedgerPrefs {
                 .apply();
     }
 
+    /** First week that participates in savings settlement, as a Monday yyyy-MM-dd key. */
+    public static String balanceStartWeek(Context context) {
+        return prefs(context).getString("balance_start_week", null);
+    }
+
+    public static void setBalanceStartWeek(Context context, String weekStart) {
+        prefs(context).edit().putString("balance_start_week", weekStart).apply();
+    }
+
+    public static void resetBalanceStartWeek(Context context) {
+        prefs(context).edit().remove("balance_start_week").apply();
+    }
+
     public static long remaining(Context context, boolean week, long spentCents) {
         return budget(context, week) - spentCents;
     }
@@ -108,6 +121,7 @@ public final class LedgerPrefs {
         editor.remove("month_orange").remove("month_red");
         editor.putLong("week_budget_adj", 0L);
         editor.putLong("month_budget_adj", 0L);
+        editor.remove("balance_start_week");
         editor.putString("remaining_mode", RemainingMode.MONTH.key);
         editor.apply();
     }

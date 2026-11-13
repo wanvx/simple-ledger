@@ -24,7 +24,7 @@ import java.util.Set;
 public final class LedgerDb extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "simple_ledger.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     private static volatile LedgerDb instance;
 
@@ -58,6 +58,7 @@ public final class LedgerDb extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_entries_date ON entries(date)");
         db.execSQL("CREATE INDEX idx_entries_category_date ON entries(category, date)");
         db.execSQL("CREATE INDEX idx_entries_created ON entries(created_at)");
+        createBalanceTables(db);
     }
 
     @Override
@@ -65,6 +66,27 @@ public final class LedgerDb extends SQLiteOpenHelper {
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE entries ADD COLUMN custom_label TEXT NOT NULL DEFAULT ''");
         }
+        if (oldVersion < 3) {
+            createBalanceTables(db);
+        }
+    }
+
+    private static void createBalanceTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS balance_records ("
+                + "_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "type TEXT NOT NULL,"
+                + "title TEXT NOT NULL,"
+                + "amount_cents INTEGER NOT NULL,"
+                + "occurred_at TEXT NOT NULL,"
+                + "week_start TEXT,"
+                + "week_end TEXT,"
+                + "budget_cents INTEGER NOT NULL DEFAULT 0,"
+                + "spent_cents INTEGER NOT NULL DEFAULT 0,"
+                + "created_at INTEGER NOT NULL)");
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_balance_week "
+                + "ON balance_records(week_start)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_balance_occurred "
+                + "ON balance_records(occurred_at)");
     }
 
     public long addEntry(String date, Category category, String subcategory,
@@ -227,6 +249,90 @@ public final class LedgerDb extends SQLiteOpenHelper {
     public long totalAll() {
         return DatabaseUtils.longForQuery(getReadableDatabase(),
                 "SELECT COALESCE(SUM(amount_cents), 0) FROM entries", null);
+    }
+
+    /** Adds a deposit, withdrawal or manual adjustment to the savings balance. */
+    public long addBalanceRecord(String type, String title, long amountCents, String occurredAt,
+                                 String weekStart, String weekEnd,
+                                 long budgetCents, long spentCents) {
+        ContentValues values = new ContentValues();
+        values.put("type", type);
+        values.put("title", title == null ? "" : title);
+        values.put("amount_cents", amountCents);
+        values.put("occurred_at", occurredAt);
+        values.put("week_start", weekStart);
+        values.put("week_end", weekEnd);
+        values.put("budget_cents", budgetCents);
+        values.put("spent_cents", spentCents);
+        values.put("created_at", System.currentTimeMillis());
+        return getWritableDatabase().insertOrThrow("balance_records", null, values);
+    }
+
+    /**
+     * Adds one week's settlement. The unique week_start index makes this idempotent, so a
+     * retry after a crash or a repeated page refresh cannot double-count a week.
+     */
+    public long addBalanceSettlement(String weekStart, String weekEnd, long budgetCents,
+                                     long spentCents, long remainingCents) {
+        ContentValues values = new ContentValues();
+        values.put("type", BalanceRecord.TYPE_SETTLE);
+        values.put("title", "周结算");
+        values.put("amount_cents", remainingCents);
+        values.put("occurred_at", weekEnd);
+        values.put("week_start", weekStart);
+        values.put("week_end", weekEnd);
+        values.put("budget_cents", budgetCents);
+        values.put("spent_cents", spentCents);
+        values.put("created_at", System.currentTimeMillis());
+        return getWritableDatabase().insertWithOnConflict("balance_records", null, values,
+                SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    public boolean hasBalanceSettlement(String weekStart) {
+        return DatabaseUtils.longForQuery(getReadableDatabase(),
+                "SELECT COUNT(*) FROM balance_records WHERE week_start = ?",
+                new String[]{weekStart}) > 0;
+    }
+
+    public long balanceTotal() {
+        return DatabaseUtils.longForQuery(getReadableDatabase(),
+                "SELECT COALESCE(SUM(amount_cents), 0) FROM balance_records", null);
+    }
+
+    public int balanceSettlementCount() {
+        return (int) DatabaseUtils.longForQuery(getReadableDatabase(),
+                "SELECT COUNT(*) FROM balance_records WHERE type = ?",
+                new String[]{BalanceRecord.TYPE_SETTLE});
+    }
+
+    public List<BalanceRecord> balanceRecords() {
+        List<BalanceRecord> result = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().query("balance_records",
+                BalanceRecord.COLUMNS, null, null, null, null,
+                "occurred_at DESC, _id DESC", "200")) {
+            while (cursor.moveToNext()) {
+                result.add(fromBalanceCursor(cursor));
+            }
+        }
+        return result;
+    }
+
+    private static BalanceRecord fromBalanceCursor(Cursor cursor) {
+        return new BalanceRecord(
+                cursor.getLong(0),
+                cursor.getString(1),
+                cursor.getString(2),
+                cursor.getLong(3),
+                cursor.getString(4),
+                cursor.getString(5),
+                cursor.getString(6),
+                cursor.getLong(7),
+                cursor.getLong(8),
+                cursor.getLong(9));
+    }
+
+    public void clearBalanceRecords() {
+        getWritableDatabase().delete("balance_records", null, null);
     }
 
     public int countAll() {

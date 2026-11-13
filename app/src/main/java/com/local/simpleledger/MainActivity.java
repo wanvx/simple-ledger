@@ -14,6 +14,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.local.simpleledger.data.LedgerDb;
+import com.local.simpleledger.ui.BalancePage;
 import com.local.simpleledger.ui.BreakdownPage;
 import com.local.simpleledger.ui.EntryFormPage;
 import com.local.simpleledger.ui.ExportPage;
@@ -36,14 +37,16 @@ public final class MainActivity extends AppCompatActivity implements Navigator {
     private LedgerDb db;
     private RecordPage recordPage;
     private HistoryPage historyPage;
+    private BalancePage balancePage;
     private ProfilePage profilePage;
     private int currentTab = -1;
     private final Deque<View> overlays = new ArrayDeque<>();
-    private final NavItem[] navItems = new NavItem[3];
+    private final NavItem[] navItems = new NavItem[4];
 
-    private static final String[] NAV_LABELS = {"记账", "记录", "我的"};
+    private static final String[] NAV_LABELS = {"记账", "记录", "余额", "我的"};
     private static final int[] NAV_ICONS = {
-            R.drawable.ic_tab_ledger, R.drawable.ic_tab_records, R.drawable.ic_tab_profile
+            R.drawable.ic_tab_ledger, R.drawable.ic_tab_records,
+            R.drawable.ic_wallet, R.drawable.ic_tab_profile
     };
 
     @Override
@@ -69,13 +72,17 @@ public final class MainActivity extends AppCompatActivity implements Navigator {
     @Override
     protected void onResume() {
         super.onResume();
+        com.local.simpleledger.util.BalanceSettlement.settleCompletedWeeks(this, db);
+        if (balancePage != null) {
+            balancePage.refresh();
+        }
         if (profilePage != null) {
             profilePage.onResumeFromActivity();
         }
     }
 
     private void buildBottomNavigation() {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             View item = getLayoutInflater().inflate(R.layout.nav_item, navContainer, false);
             ImageView icon = item.findViewById(R.id.nav_icon);
             TextView label = item.findViewById(R.id.nav_label);
@@ -126,6 +133,11 @@ public final class MainActivity extends AppCompatActivity implements Navigator {
                 }
                 return historyPage;
             case 2:
+                if (balancePage == null) {
+                    balancePage = new BalancePage(this, db);
+                }
+                return balancePage;
+            case 3:
                 if (profilePage == null) {
                     profilePage = new ProfilePage(this, db, this);
                 }
@@ -152,6 +164,11 @@ public final class MainActivity extends AppCompatActivity implements Navigator {
                 }
                 break;
             case 2:
+                if (balancePage != null) {
+                    balancePage.refresh();
+                }
+                break;
+            case 3:
                 if (profilePage != null) {
                     profilePage.refresh();
                 }
